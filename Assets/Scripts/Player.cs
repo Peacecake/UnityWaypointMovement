@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class Player : MonoBehaviour
 {
+    public event CharacterMovementEventHandler OnMovementEvent;
+
     /// <summary>
     /// Uses a Raycast to check if the player is connected to the ground.
     /// Needed because CharacterController´s isGrounded property does not work properly.
@@ -22,6 +24,7 @@ public class Player : MonoBehaviour
     public WaypointManager Waypoints;
     
     private CharacterController _cc;
+    private Vector3 _previousTarget;
     private Vector3 _walkingTarget;
     private Vector3 _gravity;
     private float _distanceToGround;
@@ -43,6 +46,7 @@ public class Player : MonoBehaviour
 
         // Set player to first waypoint and select next waypoint as walking target
         this.transform.position = this.Waypoints.Current.position;
+        _previousTarget = this.transform.position;
         _walkingTarget = this.Waypoints.Next.position;
 	}
 	
@@ -54,6 +58,18 @@ public class Player : MonoBehaviour
         HandleDirectionChange();
         MoveTowards(_walkingTarget - this.transform.position);  
 	}
+
+    /// <summary>
+    /// Calculates the the percentual progress from the previous to the next waypoint.
+    /// </summary>
+    /// <returns></returns>
+    public float GetDistancePercentage()
+    {
+        if (!IsGrounded && _horizontalInput == 0) return 1; // Camera should not move if player jumps straight
+        float totalDistance = Vector3.Distance(_previousTarget, _walkingTarget);
+        float distanceToNext = Vector3.Distance(this.transform.position, _walkingTarget);
+        return distanceToNext / totalDistance;
+    }
 
     /// <summary>
     /// Checks if the current target waypoint is reached by calculating the distance of the player 
@@ -89,7 +105,12 @@ public class Player : MonoBehaviour
     /// </summary>
     private void SetWalkingTarget()
     {
+        _previousTarget = _walkingTarget;
         _walkingTarget = _isWalkingForward ? this.Waypoints.Next.position : this.Waypoints.Previous.position;
+        if (this.OnMovementEvent != null)
+        {
+            this.OnMovementEvent.Invoke(this, _isWalkingForward);
+        }
     }
 
     /// <summary>
@@ -97,7 +118,6 @@ public class Player : MonoBehaviour
     /// </summary>
     private void CheckGroundedState()
     {
-        Debug.Log(_isAirbourne);
         if (!IsGrounded)
         {
             _isAirbourne = true;
